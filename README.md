@@ -30,7 +30,7 @@ python3 server/app.py
 ```bash
 npm ci
 npx tauri icon artwork/icon.svg
-npm run native:build -- --locked
+npx tauri build -- --locked
 ```
 
 Android（需配置 Android SDK 与 NDK_HOME）：

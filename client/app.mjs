@@ -85,7 +85,7 @@ function renderScenes() {$('#scenes').replaceChildren();current().scenes.forEach
 function render() {$('#boardTitle').value=current().title;$('#undo').disabled=!history.past.length;$('#redo').disabled=!history.future.length;settingsTheme();renderCanvas();renderInspector();renderScenes();renderBoards();}
 function selectTool(value) {tool=value;$$('[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===tool));$('#stage').style.cursor=tool==='pan'?'grab':tool==='select'?'default':'crosshair';}
 $$('[data-tool]').forEach(b=>b.onclick=()=>selectTool(b.dataset.tool));
-$('#newBoard').onclick=()=>{if(state.boards.length>=200)return toast('原型最多支持 200 个看板');const b=board();state.boards.unshift(b);state.current=b.id;selected=null;history=new History();render();dirty();};
+$('#newBoard').onclick=()=>{if(state.boards.length>=200)return toast('原型最多支持 200 个看板');const b=board();state.boards.unshift(b);state.current=b.id;$('#sidebar').classList.remove('open');selected=null;history=new History();render();dirty();};
 $('#search').oninput=renderBoards;
 $('#boardTitle').onchange=()=>{const title=$('#boardTitle').value.trim();if(!title){$('#boardTitle').value=current().title;return;}checkpoint();current().title=title;commit();};
 $('#menu').onclick=()=>$('#sidebar').classList.toggle('open');$('#closeSidebar').onclick=()=>$('#sidebar').classList.remove('open');
@@ -169,20 +169,20 @@ function keyboard() {const rows=['qwertyuiop','asdfghjkl','zxcvbnm'];$('#keyboar
 function addKey(row,label,fn,cls=''){const b=document.createElement('button');b.type='button';b.textContent=label;b.className=cls;b.onpointerdown=e=>e.preventDefault();b.onclick=fn;row.append(b);}
 function insert(value,backspace=false){const el=$('#textEditor');let start=el.selectionStart,end=el.selectionEnd;if(backspace&&start===end&&start>0)start-=Array.from(el.value.slice(0,start)).pop().length;el.setRangeText(value,start,end,'end');el.focus();}
 keyboard();
-let speechModels={}, speechGeneration=0;
+let speechGeneration=0, speechController;
 const mode=document.createElement('label');mode.className='setting-row';mode.innerHTML='识别方式<select id="speechMode"><option value="offline">离线模型</option><option value="server">私人服务器</option></select>';$('#speechLang').parentElement.after(mode);
 const modelButton=document.createElement('button');modelButton.type='button';modelButton.textContent='导入当前语言离线模型（.tar.gz）';mode.after(modelButton);
 const modelInput=document.createElement('input');modelInput.type='file';modelInput.accept='.gz';modelInput.hidden=true;document.body.append(modelInput);
 modelButton.onclick=()=>modelInput.click();modelInput.onchange=async()=>{const f=modelInput.files[0];modelInput.value='';if(!f)return;if(f.size>150*1024*1024)return toast('请选择 150 MB 内的轻量模型');try{await put('speech-model-'+$('#speechLang').value,f);toast('当前语言模型已保存到本机缓存');}catch(e){toast('模型保存失败：'+e.message);}};
 $('#speech').onclick=async()=>{
   if(speechEngine){await speechEngine.stop();speechEngine=null;$('#speech').textContent='◉ 语音输入';return;}
-  const generation=++speechGeneration;$('#speech').disabled=true;let modelURL;
+  const generation=++speechGeneration;speechController=new AbortController();$('#speech').disabled=true;let modelURL;
   try{if(state.settings.speechMode==='offline'){const blob=await get('speech-model-'+state.settings.speechLang);if(blob)modelURL=URL.createObjectURL(blob);}
-    const active=await startSpeech({mode:state.settings.speechMode||'offline',modelURL,language:state.settings.speechLang,server:state.settings.serverURL||location.origin,token:sessionToken,onText:text=>{if(generation===speechGeneration&&$('#editorDialog').open)insert(text);},onStatus:msg=>{if(generation===speechGeneration)$('#speechStatus').textContent=msg;}});
+    const active=await startSpeech({signal:speechController.signal,mode:state.settings.speechMode||'offline',modelURL,language:state.settings.speechLang,server:state.settings.serverURL||location.origin,token:sessionToken,onText:text=>{if(generation===speechGeneration&&$('#editorDialog').open)insert(text);},onStatus:msg=>{if(generation===speechGeneration)$('#speechStatus').textContent=msg;}});
     if(generation!==speechGeneration){active.abort();return;}speechEngine=active;$('#speech').textContent='■ 停止语音';
   }catch(e){toast('语音无法启动：'+e.message);}finally{if(modelURL)URL.revokeObjectURL(modelURL);$('#speech').disabled=false;}
 };
-$('#editorDialog').addEventListener('close',()=>{speechGeneration++;speechEngine?.abort();speechEngine=null;$('#speech').textContent='◉ 语音输入';});
+$('#editorDialog').addEventListener('close',()=>{speechGeneration++;speechController?.abort();speechEngine?.abort();speechEngine=null;$('#speech').textContent='◉ 语音输入';});
 $('#sync').onclick=async()=>{
   if(!sessionToken){openSettings();toast('请填写私人服务访问密钥，密钥仅在本次会话中保留');return;}
   const base=state.settings.serverURL||location.origin, b=clone(current()),key=base+'/'+b.id,revision=state.revisions[key]||0;

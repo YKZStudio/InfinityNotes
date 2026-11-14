@@ -1,7 +1,14 @@
+FROM node:22-slim AS frontend
+WORKDIR /build
+COPY package.json package-lock.json ./
+COPY tools/prepare.mjs tools/prepare.mjs
+COPY third_party third_party
+RUN npm ci --omit=dev --ignore-scripts && node tools/prepare.mjs
 FROM python:3.12-slim
 WORKDIR /app
 COPY server /app/server
 COPY client /app/client
+COPY --from=frontend /build/client/vendor /app/client/vendor
 RUN useradd --uid 10001 --create-home infinity && mkdir /data && chown infinity:infinity /data
 USER infinity
 EXPOSE 8787
