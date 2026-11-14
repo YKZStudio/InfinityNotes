@@ -8,7 +8,7 @@ permissions:
   contents: read
 concurrency:
   group: build-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   test:
     runs-on: ubuntu-24.04
@@ -24,6 +24,7 @@ jobs:
       - run: npm test
       - run: python -m unittest discover -s tests -p 'test_*.py' -v
       - run: cargo test --manifest-path native-core/Cargo.toml --locked
+      - run: python tools/test_bundle_interop.py
       - run: npx playwright install --with-deps chromium
       - name: Browser regression
         run: |
@@ -43,6 +44,8 @@ jobs:
         with: {node-version: '22', cache: npm}
       - uses: dtolnay/rust-toolchain@stable
       - run: npm ci
+      - uses: Swatinem/rust-cache@v2
+        with: {workspaces: src-tauri, cache-on-failure: true}
       - run: npx tauri icon artwork/icon.svg
       - run: npx tauri build -- --locked
       - uses: actions/upload-artifact@v4
@@ -63,11 +66,16 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with: {targets: aarch64-linux-android}
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
       - run: sdkmanager "platforms;android-37" "build-tools;37.0.0" "ndk;28.2.13676358"
       - run: echo "NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
       - run: npm ci
       - run: npx tauri android init --ci --skip-targets-install
       - run: npx tauri icon artwork/icon.svg
+      - uses: Swatinem/rust-cache@v2
+        with: {workspaces: src-tauri, cache-on-failure: true}
       - run: npx tauri android build --debug --apk --target aarch64
       - uses: actions/upload-artifact@v4
         with:

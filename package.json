@@ -4,7 +4,7 @@
   "version": "0.2.0",
   "type": "module",
   "scripts": {
-    "test": "node --test tests/core.test.mjs",
+    "test": "node --test tests/core.test.mjs tests/speech.test.mjs",
     "start": "python3 server/app.py",
     "prepare": "node tools/prepare.mjs",
     "tauri": "tauri",
