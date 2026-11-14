@@ -45,7 +45,7 @@ const path=require('node:path');
     const c=await browser.newContext({viewport:{width,height},isMobile:true,hasTouch:true});const p=await c.newPage();p.on('pageerror',e=>errors.push(e.message));await p.goto('http://127.0.0.1:8787');await p.locator('#saveSettings').click();await p.screenshot({path:path.join(out,name+'.png')});
     assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
     for(const id of ['newBoard','settings']){if(width<820)await p.locator('#menu').click();await p.locator('#'+id).click();if(id==='settings')await p.locator('#saveSettings').click();}
-    if(width<820){const session=await c.newCDPSession(p);await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:80,y:300},{x:200,y:300}]});await session.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:60,y:300},{x:240,y:300}]});await session.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});assert.notEqual(await p.locator('#zoomValue').textContent(),'100%');}
+    if(width<820){const session=await c.newCDPSession(p);await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{id:1,x:80,y:300},{id:2,x:200,y:300}]});await session.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{id:1,x:60,y:300},{id:2,x:240,y:300}]});await p.waitForFunction(()=>document.querySelector('#zoomValue').textContent!=='100%',null,{timeout:3000});await session.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});assert.notEqual(await p.locator('#zoomValue').textContent(),'100%');}
     await c.close();
   }
   assert.deepEqual(errors,[]);await browser.close();console.log('浏览器验证通过：首次设置、编辑、撤销、锁定、拖动、手绘、缩放、场景、内置键盘、同步、导出、重启恢复、平板/手机、双指缩放。');

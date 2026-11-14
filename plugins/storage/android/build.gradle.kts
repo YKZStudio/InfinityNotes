@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.ykzstudio.infinitynotes.storage"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 31
