@@ -1,0 +1,23 @@
+name: Browser regression
+on:
+  push:
+    branches: [main]
+    paths: ['client/**', 'tests/browser-check.cjs', '.github/workflows/browser.yml']
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  browser:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: |
+          WUJI_TOKEN=prototype-test-key-not-for-production python3 server/app.py --data "$RUNNER_TEMP/qa-data" &
+          python3 -c "import time,urllib.request; time.sleep(1); urllib.request.urlopen('http://127.0.0.1:8787/api/health')"
+          node tests/browser-check.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: browser-results, path: test-results/}

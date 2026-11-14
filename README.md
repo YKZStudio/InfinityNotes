@@ -38,6 +38,7 @@ Android（需配置 Android SDK 与 NDK_HOME）：
 ```bash
 npm ci
 npx tauri android init --ci
+python3 tools/configure_android.py
 npx tauri icon artwork/icon.svg
 npx tauri android build --debug --apk --target aarch64
 ```
