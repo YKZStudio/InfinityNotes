@@ -1,0 +1,25 @@
+[package]
+name = "infinity-notes"
+version = "0.2.0"
+edition = "2021"
+rust-version = "1.90"
+
+[lib]
+name = "infinity_notes_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "=2.12.5", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-storage = { path = "../plugins/storage" }
+infinity-native-core = { path = "../native-core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+base64 = "0.22"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]

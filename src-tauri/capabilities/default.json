@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "仅本地业务界面使用原生存储接口",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

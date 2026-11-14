@@ -1,0 +1,8 @@
+services:
+  app:
+    build:
+      dockerfile: deploy/Dockerfile.speech
+    volumes:
+      - ${INFINITY_MODELS_DIR:?Please set INFINITY_MODELS_DIR}:/models:ro
+    mem_limit: 2560m
+    cpus: 1.5

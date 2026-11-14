@@ -1,0 +1,2 @@
+# Optional; not installed in the lightweight sync-only image.
+faster-whisper==1.2.1

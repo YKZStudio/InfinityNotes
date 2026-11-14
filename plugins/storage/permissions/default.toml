@@ -1,0 +1,3 @@
+[default]
+description = "Native calls are mediated by the application; no direct JS plugin commands."
+permissions = []
