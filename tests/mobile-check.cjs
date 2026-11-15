@@ -29,14 +29,20 @@ const path=require('node:path');
     await p.locator('#menu').click();assert.equal(await p.locator('#main').evaluate(el=>el.inert),true);
     await p.keyboard.press('Escape');assert.equal(await p.locator('#sidebar').evaluate(el=>el.inert),true);
     await p.locator('#menu').click();await p.locator('#newBoard').click();
+    await p.waitForFunction(()=>document.querySelector('#sidebar').getBoundingClientRect().right<=0);
+    console.log('Mobile variant:',name);
     const session=await c.newCDPSession(p);
     const touch=(type,points)=>session.send('Input.dispatchTouchEvent',{type,touchPoints:points.map(([id,x,y])=>({id,x,y}))});
     await p.locator('[data-tool=note]').tap();await p.touchscreen.tap(50,230);
+    if(!await p.locator('#editorDialog').evaluate(el=>el.open)){
+      await p.screenshot({path:path.join(out,name+'-placement-failure.png'),animations:'disabled'});
+      console.log('Placement diagnostic:',await p.evaluate(()=>({at:document.elementFromPoint(50,230)?.outerHTML,tool:document.querySelector('#toolbar .active')?.outerHTML,mainInert:document.querySelector('#main').inert})));
+    }
     await p.locator('#editorDialog[open]').waitFor();await p.locator('#textEditor').fill('周末的灵感\n散步、阅读、画一张地图。');
     await p.locator('#editorDialog button[value=save]').click();
     assert.equal(await p.locator('#world > g[data-id]').count(),1);
     const inspector=await p.locator('#inspector').boundingBox();assert.ok(inspector.height<80);assert.ok(inspector.y+inspector.height<=bar.y);
-    await p.screenshot({path:path.join(out,name+'.png')});
+    await p.screenshot({path:path.join(out,name+'.png'),animations:'disabled'});
     await p.locator('#toggleInspector').tap();assert.equal(await p.locator('#width').isVisible(),true);
     await p.locator('#duplicate').tap();assert.equal(await p.locator('#world > g[data-id]').count(),2);
     await p.locator('#undo').tap();assert.equal(await p.locator('#world > g[data-id]').count(),1);
@@ -66,8 +72,9 @@ const path=require('node:path');
       await p.evaluate(()=>{window.__qaInsets={top:0,bottom:18,left:44,right:20};window.dispatchEvent(new CustomEvent('infinity-insets',{detail:window.__qaInsets}));});
       await p.setViewportSize({width:844,height:390});
       await p.waitForFunction(()=>getComputedStyle(document.documentElement).getPropertyValue('--native-safe-left')==='44px');
+      assert.equal(await p.locator('#sidebar').evaluate(el=>el.inert),true);
       const t=await p.locator('#toolbar').boundingBox();assert.ok(t.x>=44&&t.x+t.width<=824);assert.ok(t.y+t.height<=372);
-      await p.screenshot({path:path.join(out,'phone-landscape.png')});
+      await p.screenshot({path:path.join(out,'phone-landscape.png'),animations:'disabled'});
     }
     await c.close();
   }

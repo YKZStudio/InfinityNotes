@@ -12,7 +12,7 @@ const pointers=new Map();
 const current = () => state.boards.find(b=>b.id===state.current);
 const object = () => current().nodes.find(n=>n.id===selected);
 decorateIcons();
-const compactLayout=matchMedia('(max-width:820px)');
+const compactLayout=matchMedia('(max-width:820px), (hover:none) and (max-height:500px)');
 function setSidebar(open,restoreFocus=false){
   const mobile=compactLayout.matches;
   $('#sidebar').classList.toggle('open',mobile&&open);
