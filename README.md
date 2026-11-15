@@ -74,6 +74,7 @@ cargo test --manifest-path native-core/Cargo.toml --locked
 
 ## 文档与范围
 
+- [0.3 界面与手机适配、截图和测试范围](docs/UI-0.3.md)
 - [已确认的需求](docs/DECISIONS.md)
 - [ECS 部署与签名更新](docs/DEPLOYMENT.md)
 - [最初功能矩阵与开发范围](docs/开发规格与决策.md)（历史决策以 DECISIONS.md 为准）
