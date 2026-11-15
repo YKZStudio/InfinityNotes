@@ -121,7 +121,14 @@ $('#deselect').onclick=()=>{selected=null;renderCanvas();renderInspector();};
 $('#insertMenu').onclick=()=>$('#insertDialog').showModal();
 $('#boardMenu').onclick=()=>{$('#menuRedo').disabled=!history.future.length;$('#boardActionsDialog').showModal();};
 for(const [id,target] of [['menuRedo','redo'],['menuExport','export'],['menuSync','sync'],['menuSettings','settings']])$('#'+id).onclick=()=>{$('#boardActionsDialog').close();$('#'+target).click();};
-$$('dialog').forEach(dialog=>dialog.addEventListener('click',e=>{if(e.target!==dialog)return;const r=dialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dialog.close('cancel');}));
+$$('dialog').forEach(dialog=>{
+  let backdropDown=false;
+  const outside=e=>{const r=dialog.getBoundingClientRect();return e.target===dialog&&(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom);};
+  // A dialog opened on canvas finger-up must not consume that same tap as a dismissal.
+  dialog.addEventListener('pointerdown',e=>{backdropDown=outside(e);});
+  dialog.addEventListener('click',e=>{if(backdropDown&&outside(e))dialog.close('cancel');backdropDown=false;});
+  dialog.addEventListener('close',()=>{backdropDown=false;});
+});
 function undo() {const b=history.undo(current());state.boards[state.boards.findIndex(v=>v.id===state.current)]=b;selected=null;commit();}
 function redo() {const b=history.redo(current());state.boards[state.boards.findIndex(v=>v.id===state.current)]=b;selected=null;commit();}
 $('#undo').onclick=undo;$('#redo').onclick=redo;
