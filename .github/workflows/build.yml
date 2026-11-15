@@ -31,6 +31,7 @@ jobs:
           WUJI_TOKEN=prototype-test-key-not-for-production python server/app.py --data "$RUNNER_TEMP/qa-data" &
           python -c "import time,urllib.request; time.sleep(1); urllib.request.urlopen('http://127.0.0.1:8787/api/health')"
           node tests/browser-check.cjs
+          node tests/mobile-check.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with: {name: browser-results, path: test-results/}
@@ -96,6 +97,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="v0.2.0-preview.${{ github.run_number }}"
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v$VERSION-preview.${{ github.run_number }}"
           find release-assets -type f \( -name '*.exe' -o -name '*.apk' \) -exec cp {} . \;
           gh release create "$TAG" ./*.exe ./*.apk --target "$GITHUB_SHA" --prerelease --title "无限记 $TAG 开发预览" --notes-file docs/PREVIEW-RELEASE.md

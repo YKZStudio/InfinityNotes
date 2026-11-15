@@ -176,6 +176,20 @@ fn native_status(state: tauri::State<'_, Shared>) -> Result<Value, String> {
     )
 }
 #[tauri::command]
+async fn window_insets(app: tauri::AppHandle, dark: bool) -> Result<Value, String> {
+    #[cfg(target_os = "android")]
+    {
+        tauri::async_runtime::spawn_blocking(move || mobile(&app, "windowInsets", json!({"dark":dark})))
+            .await
+            .map_err(|e| e.to_string())?
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = (app, dark);
+        Ok(json!({"top":0,"right":0,"bottom":0,"left":0}))
+    }
+}
+#[tauri::command]
 async fn choose_folder(app: tauri::AppHandle) -> Result<Value, String> {
     tauri::async_runtime::spawn_blocking(move || {
         #[cfg(target_os = "android")]
@@ -223,7 +237,7 @@ async fn confirm_folder(app: tauri::AppHandle) -> Result<(), String> {
         let shared = app.state::<Shared>();
         let mut s = shared.lock().map_err(|e| e.to_string())?;
         let folder = s.pending.take().ok_or("没有待确认文件夹")?;
-        mirror(&app, &folder, "embedded-020", &app.state::<Embedded>().0)?;
+        mirror(&app, &folder, "embedded-030", &app.state::<Embedded>().0)?;
         atomic_json(&s.root.join("folder.json"), &folder).map_err(|e| e.to_string())?;
         s.folder = folder;
         Ok(())
@@ -384,6 +398,7 @@ pub fn run() {
         .plugin(tauri_plugin_storage::init())
         .invoke_handler(tauri::generate_handler![
             native_status,
+            window_insets,
             choose_folder,
             confirm_folder,
             read_workspace,

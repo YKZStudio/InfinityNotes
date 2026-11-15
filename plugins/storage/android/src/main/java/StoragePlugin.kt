@@ -3,6 +3,9 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.util.Base64
+import android.view.WindowInsets
+import android.view.WindowInsetsController
+import android.webkit.WebView
 import androidx.activity.result.ActivityResult
 import androidx.documentfile.provider.DocumentFile
 import app.tauri.annotation.ActivityCallback
@@ -17,9 +20,47 @@ import java.util.concurrent.Executors
 
 @InvokeArg class Entry {var path:String="";var data:String=""}
 @InvokeArg class StorageArgs {var uri:String="";var data:String="";var files:Array<Entry> = emptyArray();var version:String="embedded"}
+@InvokeArg class AppearanceArgs {var dark:Boolean=false}
 @TauriPlugin
 class StoragePlugin(private val activity:Activity):Plugin(activity){
     private val worker=Executors.newSingleThreadExecutor()
+    private var browser:WebView?=null
+    private var lastInsets:String?=null
+    private fun insets():JSObject {
+        val view=browser?:return JSObject()
+        val bars=view.rootWindowInsets?.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())?:return JSObject()
+        val location=IntArray(2);view.getLocationInWindow(location)
+        val decor=activity.window.decorView
+        val density=activity.resources.displayMetrics.density
+        // Only add the part overlapping the WebView. Already padded windows need no second inset.
+        return JSObject().apply {
+            put("top",(bars.top-location[1]).coerceAtLeast(0)/density)
+            put("left",(bars.left-location[0]).coerceAtLeast(0)/density)
+            put("bottom",(location[1]+view.height-(decor.height-bars.bottom)).coerceAtLeast(0)/density)
+            put("right",(location[0]+view.width-(decor.width-bars.right)).coerceAtLeast(0)/density)
+        }
+    }
+    override fun load(webView:WebView){
+        browser=webView
+        // Observe layout without replacing Tauri's own WindowInsets listener.
+        webView.viewTreeObserver.addOnGlobalLayoutListener {
+            val value=insets().toString()
+            if(value!=lastInsets){
+                lastInsets=value
+                webView.evaluateJavascript("window.dispatchEvent(new CustomEvent('infinity-insets',{detail:$value}))",null)
+            }
+        }
+    }
+    @Command fun windowInsets(invoke:Invoke){
+        val args=invoke.parseArgs(AppearanceArgs::class.java)
+        activity.runOnUiThread {
+            try{
+                val flags=WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+                activity.window.insetsController?.setSystemBarsAppearance(if(args.dark)0 else flags,flags)
+                invoke.resolve(insets())
+            }catch(e:Exception){invoke.reject(e.message?:"无法读取安全边距")}
+        }
+    }
     private fun root(uri:String):DocumentFile {
         val u=Uri.parse(uri)
         check(activity.contentResolver.persistedUriPermissions.any{it.uri==u&&it.isReadPermission&&it.isWritePermission}){"文件夹授权已失效，请重新选择"}

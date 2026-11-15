@@ -1,23 +1,35 @@
 # ECS 部署准备
 
-目标机器暂按 2 vCPU、4 GB 内存、80 GB 磁盘。尚未连接或修改你的真实服务器。
+目标：`notes.yakezhou.asia`，Alibaba Cloud Linux 4 LTS x64。资源暂按 2 vCPU、4 GB 内存、80 GB 磁盘。尚未连接或修改真实服务器。
+
+先在 ECS 上检查系统和现有 Docker（容器引擎），不要重复安装：
+
+```bash
+cat /etc/os-release
+docker --version
+docker compose version
+sudo systemctl status docker --no-pager
+```
+
+如果 Docker 或 Compose 命令不存在，按阿里云针对当前系统的官方安装说明配置后继续。避免套用其他发行版的安装脚本。
 
 ## 个人同步与更新分发
 
-先在服务器安装 Docker Engine（容器引擎）与 Compose（容器编排工具），把本仓库拉到自己的部署目录。
+确认 Docker Engine（容器引擎）与 Compose（容器编排工具）可用后，把本仓库拉到自己的部署目录。
 
 ```bash
 cp deploy/.env.example deploy/.env
 python3 -c 'import secrets; print(secrets.token_urlsafe(32))'
 ```
 
-在 `deploy/.env` 中填写真实子域名、刚生成的访问密钥。请不要提交 `.env`。把子域名的 A 记录指向 ECS 公网地址，开放 TCP 80/443。Docker 代理会处理 HTTPS 证书，应用的 8787 端口不直接发布到公网。
+`deploy/.env.example` 已填写 `INFINITY_DOMAIN=notes.yakezhou.asia`。在 `deploy/.env` 中填写刚生成的访问密钥。请不要提交 `.env`。把子域名的 A 记录指向 ECS 公网地址，开放 TCP 80/443。Docker 代理会处理 HTTPS 证书，应用的 8787 端口不直接发布到公网。
 
 ```bash
-docker compose -f deploy/compose.yml up -d --build
+docker compose --env-file deploy/.env -f deploy/compose.yml config --quiet
+docker compose --env-file deploy/.env -f deploy/compose.yml up -d --build
 ```
 
-默认镜像不包含大模型。客户端填入 `https://你的子域名`，使用同一私人密钥进行手动跨设备同步。现有服务是个人共享工作区，不能当成多用户服务。
+默认镜像不包含大模型。客户端填入 `https://notes.yakezhou.asia`，使用同一私人密钥进行手动跨设备同步。现有服务是个人共享工作区，不能当成多用户服务。
 
 在销毁或重装服务器前备份 `infinity-data` 命名卷；停止写入后备份，或使用 SQLite backup（数据库在线备份接口）得到一致的数据库副本。恢复操作先在测试目录验证，不直接覆盖唯一副本。
 
@@ -35,7 +47,7 @@ WUJI_ASR_MODEL=/models/tiny
 ```
 
 ```bash
-docker compose -f deploy/compose.yml -f deploy/compose.speech.yml up -d --build
+docker compose --env-file deploy/.env -f deploy/compose.yml -f deploy/compose.speech.yml up -d --build
 ```
 
 目前单并发、最多 60 秒录音、2 个 CPU 线程、int8（8 位整数运算）。同步与推理共用此 ECS，**不能据此承诺实时速度**；需要用你的服务器实测延迟、内存及磁盘占用。应用给语音服务留 2.5 GB 内存上限，若模型不合适应改用更小模型或拆分服务。
@@ -54,4 +66,13 @@ docker compose -f deploy/compose.yml -f deploy/compose.speech.yml up -d --build
 
 ## 真正部署前需要的信息
 
-请提供你准备使用的**子域名、ECS 操作系统和版本、是否已安装 Docker**。如果要我直接部署，还需通过受支持的安全连接提供操作环境；不要在聊天里发 SSH 密码、私钥或令牌。
+子域名和系统已确认；Docker 是否可用仍需用上面的命令检查。直接部署还需要可操作的服务器连接，目前尚未提供。不要在聊天里发 SSH 密码、私钥或令牌。
+
+启动后检查：
+
+```bash
+docker compose --env-file deploy/.env -f deploy/compose.yml ps
+curl --fail https://notes.yakezhou.asia/api/health
+```
+
+健康检查应返回 JSON（数据对象）；同步接口仍需访问密钥。客户端只在主动同步/下载/语音操作时连接服务，示例域名不会自动启用录音或上传。

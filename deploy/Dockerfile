@@ -2,6 +2,7 @@ FROM node:22-slim AS frontend
 WORKDIR /build
 COPY package.json package-lock.json ./
 COPY tools/prepare.mjs tools/prepare.mjs
+COPY artwork artwork
 COPY third_party third_party
 RUN npm ci --omit=dev --ignore-scripts && node tools/prepare.mjs
 FROM python:3.12-slim

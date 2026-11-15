@@ -2,7 +2,7 @@ name: Browser regression
 on:
   push:
     branches: [main]
-    paths: ['client/**', 'tests/browser-check.cjs', '.github/workflows/browser.yml']
+    paths: ['client/**', 'tests/*check.cjs', '.github/workflows/browser.yml']
   workflow_dispatch:
 permissions: {contents: read}
 jobs:
@@ -18,6 +18,7 @@ jobs:
           WUJI_TOKEN=prototype-test-key-not-for-production python3 server/app.py --data "$RUNNER_TEMP/qa-data" &
           python3 -c "import time,urllib.request; time.sleep(1); urllib.request.urlopen('http://127.0.0.1:8787/api/health')"
           node tests/browser-check.cjs
+          node tests/mobile-check.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with: {name: browser-results, path: test-results/}
