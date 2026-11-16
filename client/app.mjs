@@ -8,6 +8,7 @@ const defaults = {theme:'system',accent:'#b66d27',keyboard:false,speech:false,sp
 let state = {schema:1, boards:[demo()], current:null, settings:{...defaults}, revisions:{}};
 state.current = state.boards[0].id;
 let db, folder, selected=null, tool='select', history=new History(), drag=null, space=false, saveTimer, toastTimer, speechEngine, shifted=false, saving=Promise.resolve(), sequence=0, sessionToken='', storageBlocked=false;
+let setupRequired=false;
 const pointers=new Map();
 const current = () => state.boards.find(b=>b.id===state.current);
 const object = () => current().nodes.find(n=>n.id===selected);
@@ -61,7 +62,7 @@ function persist() {
     if(storageBlocked) throw Error('原本机数据读取异常，已暂停自动写入以保留原始内容。请先导出，再导入有效备份。');
     if(!db) throw Error('本机存储不可用，请及时导出备份');
     await put('workspace',snapshot);
-    let label='已保存到浏览器';
+    let label=isNative?'已暂存本机 · 请设置文件夹':'已保存到浏览器';
     if(isNative&&nativeInfo?.folder?.uri){await invoke('write_workspace',{data:JSON.stringify(snapshot)});label='已保存到自选文件夹';}
     if(folder) {
       try {
@@ -71,8 +72,8 @@ function persist() {
       } catch(e) {label='已存浏览器，文件夹写入失败';toast(e.message);}
     }
     if(version===sequence) $('#saveStatus').textContent=label;
-    renderBoards();
-  }).catch(e=>{$('#saveStatus').textContent='保存失败，请导出备份';toast(e.message);});
+    renderBoards();return true;
+  }).catch(e=>{$('#saveStatus').textContent='保存失败，请导出备份';toast(e.message);return false;});
   return saving;
 }
 function checkpoint() {history.push(current());}
@@ -126,7 +127,7 @@ $$('dialog').forEach(dialog=>{
   const outside=e=>{const r=dialog.getBoundingClientRect();return e.target===dialog&&(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom);};
   // A dialog opened on canvas finger-up must not consume that same tap as a dismissal.
   dialog.addEventListener('pointerdown',e=>{backdropDown=outside(e);});
-  dialog.addEventListener('click',e=>{if(backdropDown&&outside(e))dialog.close('cancel');backdropDown=false;});
+  dialog.addEventListener('click',e=>{if(backdropDown&&outside(e)&&!(dialog.id==='settingsDialog'&&setupRequired))dialog.close('cancel');backdropDown=false;});
   dialog.addEventListener('close',()=>{backdropDown=false;});
 });
 function undo() {const b=history.undo(current());state.boards[state.boards.findIndex(v=>v.id===state.current)]=b;selected=null;commit();}
@@ -227,10 +228,15 @@ window.addEventListener('keydown',e=>{if($$('dialog[open]').length||['INPUT','TE
 window.addEventListener('keyup',e=>{if(e.code==='Space')space=false;});window.addEventListener('blur',()=>{space=false;pointers.clear();finishPath();drag=null;});
 function openSettings(first=false) {const s=state.settings;$('#settingsTitle').textContent=first?'欢迎来到无限记':'让无限记更像你';$('#saveSettings').textContent=first?'开始记录':'保存设置';$('#theme').value=s.theme;$('#accent').value=s.accent;$('#keyboardEnabled').checked=s.keyboard;$('#speechEnabled').checked=s.speech;$('#speechLang').value=s.speechLang;$('#speechMode').value=s.speechMode||'offline';$('#reducedGlass').checked=s.reduced;$('#serverURL').value=s.serverURL;$('#serverToken').value=sessionToken;$('#folderLabel').textContent=isNative?(nativeInfo?.folder?.name?'原生文件夹：'+nativeInfo.folder.name:'请先选择原生存储文件夹'):folder?`文件夹：${folder.name}；重启浏览器后可能需要重新授权。`:'当前：浏览器本机存储。可选文件夹或导出备份。';$('#settingsDialog').showModal();}
 $('#settings').onclick=()=>{setSidebar(false);openSettings();};
-$('#settingsDialog form').addEventListener('submit',e=>{
+$('#settingsDialog').addEventListener('cancel',e=>{if(setupRequired){e.preventDefault();toast('请先完成存储设置');}});
+$('#settingsDialog').addEventListener('close',()=>{if(setupRequired)queueMicrotask(()=>{if(!$('#settingsDialog').open)$('#settingsDialog').showModal();});});
+$('#settingsDialog form').addEventListener('submit',async e=>{
+  e.preventDefault();
   if(isNative&&!nativeInfo?.folder?.uri){e.preventDefault();toast('请先选择一个存储文件夹');return;}
   const url=$('#serverURL').value.trim();if(url){try{const u=new URL(url);if(u.protocol!=='https:'&&!(['localhost','127.0.0.1','[::1]'].includes(u.hostname)&&u.protocol==='http:'))throw Error();}catch{e.preventDefault();return toast('远程服务请使用 HTTPS，本机测试可使用 http://127.0.0.1');}}
-  state.settings={theme:$('#theme').value,accent:$('#accent').value,keyboard:$('#keyboardEnabled').checked,speech:$('#speechEnabled').checked,speechLang:$('#speechLang').value,reduced:$('#reducedGlass').checked,speechMode:$('#speechMode').value,serverURL:url.replace(/\/$/,'')};sessionToken=$('#serverToken').value;settingsTheme();dirty();
+  state.settings={theme:$('#theme').value,accent:$('#accent').value,keyboard:$('#keyboardEnabled').checked,speech:$('#speechEnabled').checked,speechLang:$('#speechLang').value,reduced:$('#reducedGlass').checked,speechMode:$('#speechMode').value,serverURL:url.replace(/\/$/,'')};sessionToken=$('#serverToken').value;settingsTheme();
+  const previous=state.setupComplete;state.setupComplete=true;$('#saveSettings').disabled=true;
+  try{if(await persist()){setupRequired=false;$('#settingsDialog').close('save');}else state.setupComplete=previous;}finally{$('#saveSettings').disabled=false;}
 });
 $('#chooseFolder').onclick=async()=>{
   if(isNative){try{
@@ -250,8 +256,8 @@ $('#chooseFolder').onclick=async()=>{
 };
 function download(name,content,type='application/json') {const a=document.createElement('a'),url=URL.createObjectURL(new Blob([content],{type}));a.href=url;a.download=name.replace(/[\\/:*?"<>|]/g,'_');a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);}
 $('#export').onclick=()=>$('#exportDialog').showModal();$('#exportJSON').onclick=()=>download(current().title+'.json',JSON.stringify(current(),null,2));$('#exportSVG').onclick=()=>download(current().title+'.svg',exportSVG(current()),'image/svg+xml');$('#backup').onclick=()=>download('无限记工作区备份.json',JSON.stringify(state,null,2));
-const mobileExport=document.createElement('button');mobileExport.type='button';mobileExport.textContent='导出 / 备份';mobileExport.onclick=()=>{$('#settingsDialog').close();$('#exportDialog').showModal();};$('#import').after(mobileExport);
-$('#import').onclick=()=>$('#importFile').click();$('#importFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;if(f.size>32*1024*1024)return toast('原型导入文件上限为 32 MB');try{const value=JSON.parse(await f.text());const incoming=value.format==='wuxianji.board'?[validateBoard(value)]:validateWorkspace(value).boards;if(state.boards.length+incoming.length>200)throw Error('导入后将超过 200 个看板');if(storageBlocked&&!confirm('本机原工作区读取异常。导入会恢复自动保存并替换原数据库中的工作区。确定继续？'))return;for(const b of incoming){b.id=uid();b.title=(b.title+'（导入）').slice(0,200);state.boards.push(b);}storageBlocked=false;state.current=incoming[0].id;selected=null;history=new History();render();dirty();$('#settingsDialog').close();toast(`已导入 ${incoming.length} 个看板`);}catch(e){toast('导入失败：'+e.message);}};
+const mobileExport=document.createElement('button');mobileExport.type='button';mobileExport.textContent='导出 / 备份';mobileExport.onclick=()=>{if(!setupRequired)$('#settingsDialog').close();$('#exportDialog').showModal();};$('#import').after(mobileExport);
+$('#import').onclick=()=>$('#importFile').click();$('#importFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;if(f.size>32*1024*1024)return toast('原型导入文件上限为 32 MB');try{const value=JSON.parse(await f.text());const incoming=value.format==='wuxianji.board'?[validateBoard(value)]:validateWorkspace(value).boards;if(state.boards.length+incoming.length>200)throw Error('导入后将超过 200 个看板');if(storageBlocked&&!confirm('本机原工作区读取异常。导入会恢复自动保存并替换原数据库中的工作区。确定继续？'))return;for(const b of incoming){b.id=uid();b.title=(b.title+'（导入）').slice(0,200);state.boards.push(b);}storageBlocked=false;state.current=incoming[0].id;selected=null;history=new History();render();dirty();if(!setupRequired)$('#settingsDialog').close();toast(`已导入 ${incoming.length} 个看板`);}catch(e){toast('导入失败：'+e.message);}};
 function keyboard() {const rows=['qwertyuiop','asdfghjkl','zxcvbnm'];$('#keyboard').replaceChildren();for(let i=0;i<rows.length;i++){const row=document.createElement('div');row.className='key-row';if(i===2)addKey(row,'⇧',()=>{shifted=!shifted;keyboard();},'wide');for(const key of rows[i])addKey(row,shifted?key.toUpperCase():key,()=>insert(shifted?key.toUpperCase():key));if(i===2)addKey(row,'⌫',()=>insert('',true),'wide');$('#keyboard').append(row);}const row=document.createElement('div');row.className='key-row';for(const s of [',','.','?'])addKey(row,s,()=>insert(s));addKey(row,'空格',()=>insert(' '),'space');addKey(row,'换行',()=>insert('\n'),'wide');$('#keyboard').append(row);}
 function addKey(row,label,fn,cls=''){const b=document.createElement('button');b.type='button';b.textContent=label;b.className=cls;b.onpointerdown=e=>e.preventDefault();b.onclick=fn;row.append(b);}
 function insert(value,backspace=false){const el=$('#textEditor');let start=el.selectionStart,end=el.selectionEnd;if(backspace&&start===end&&start>0)start-=Array.from(el.value.slice(0,start)).pop().length;el.setRangeText(value,start,end,'end');el.focus();}
@@ -284,7 +290,8 @@ try {await openDB();await nativeStatus();let stored=await get('workspace');
   if(isNative&&nativeInfo?.folder?.uri){const raw=await invoke('read_workspace');if(raw)stored=JSON.parse(raw);else stored=null;$('#storageStatus').textContent=nativeInfo.folder.name;}
   if(stored)state=validateWorkspace(stored);if(!isNative){folder=await get('folder');if(folder)$('#storageStatus').textContent=folder.name;}
   if(!stored)current().camera={x:20,y:110,z:Math.min(.9,(stage.clientWidth-40)/1000)};
-  render();if(isNative)await invoke('app_ready');if(!stored||(isNative&&!nativeInfo?.folder?.uri))openSettings(true);
+  setupRequired=!stored||stored.setupComplete===false||(isNative&&!nativeInfo?.folder?.uri);if(setupRequired)state.setupComplete=false;
+  render();if(isNative)await invoke('app_ready');if(setupRequired)openSettings(true);
   if(nativeInfo?.error)toast(nativeInfo.error);
 }
 catch(e){storageBlocked=true;render();toast('本机数据无法读取：'+e.message+'。已暂停自动保存，请勿清除浏览器数据；可尝试导入备份。');}
