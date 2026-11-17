@@ -21,6 +21,7 @@ const path=require('node:path');
     });
     const p=await c.newPage();p.on('pageerror',e=>errors.push(e.message));await p.goto('http://127.0.0.1:8787');
     await p.locator('#saveSettings').click();
+    await p.locator('#settingsDialog').waitFor({state:'hidden'});
     await p.screenshot({path:path.join(out,name+'-library.png'),animations:'disabled'});
     await p.locator('.library-card').first().click();
     await p.waitForFunction(()=>getComputedStyle(document.documentElement).getPropertyValue('--native-safe-top')==='32px');
