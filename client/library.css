@@ -18,3 +18,65 @@ body[data-page=home] #main,body[data-page=home] #sidebar{display:none}
 @media(min-width:1100px){.library-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:500px){.topbar{gap:7px}.topbar #menu{width:36px;height:36px;padding:8px}.topbar #backHome{width:38px;height:38px;padding:9px}.topbar #boardTitle{font-size:15px}.top-actions{gap:4px}}
 @media(prefers-reduced-motion:reduce){#navLens{transition:none}#libraryNav:active #navLens{scale:1}}
+/* Shared control material and touch feedback. Keyboard focus remains visible. */
+*{-webkit-tap-highlight-color:transparent}
+button,a,input,select,textarea{touch-action:manipulation}
+button{user-select:none;-webkit-user-select:none}
+button:focus:not(:focus-visible){outline:none}
+button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+#libraryNew{padding:0;line-height:0;display:flex;align-items:center;justify-content:center}
+#libraryNew>svg.icon{display:block;flex:0 0 26px;width:26px;height:26px;margin:0}
+#settingsPage{position:fixed;inset:0;z-index:10;height:100dvh;overflow:auto;overscroll-behavior:contain;background:var(--background);color:var(--text);padding:calc(20px + var(--safe-top)) calc(20px + var(--safe-right)) calc(108px + var(--safe-bottom)) calc(20px + var(--safe-left));scroll-padding-bottom:120px}
+#settingsPage>form{max-width:800px;margin:0 auto}
+#settingsPage .dialog-heading{padding:22px 54px 24px 2px;border:0}
+#settingsPage h1{font-size:32px;margin:12px 0;outline:none}
+#settingsPage p{line-height:1.8;font-size:14px;color:var(--muted)}
+#settingsPage .settings-grid{padding:12px 0;gap:16px;grid-template-columns:1fr}
+#settingsPage .settings-grid section{padding:24px}
+#settingsPage h3{font-size:18px;margin-bottom:20px}
+#settingsPage .setting-row,#settingsPage .check{font-size:14px!important;min-height:48px;margin:8px 0}
+#settingsPage .settings-grid section>button{font-size:14px;min-height:48px;padding:12px 18px}
+#settingsPage .settings-grid label:not(.check){font-size:14px}
+#settingsPage select{font-size:14px;min-height:48px}
+#settingsPage #closeSettings{position:fixed;top:calc(20px + var(--safe-top));right:calc(20px + var(--safe-right));width:48px;height:48px;padding:12px}
+#settingsPage .welcome-icon{display:none}
+#settingsPage .dialog-footer{position:fixed;bottom:0;left:0;right:0;padding:12px calc(20px + var(--safe-right)) calc(12px + var(--safe-bottom)) calc(20px + var(--safe-left));background:var(--panel);backdrop-filter:blur(20px) saturate(1.8);border-top:1px solid var(--line);z-index:2;justify-content:flex-start;gap:8px}
+#settingsPage .dialog-footer button{min-height:48px;border-radius:28px;padding:12px 18px;font-size:14px}
+#settingsPage .dialog-footer .accent{margin-left:auto}
+#setupWelcome{text-align:center;padding:50px 0 70px}
+#setupWelcome img{width:128px;height:128px;display:block;margin:0 auto 28px}
+#setupWelcome p{font-size:22px;color:var(--text)}
+#settingsPage[data-setup=true] .dialog-heading{padding-top:42px}
+#settingsPage[data-setup=true] .settings-grid{padding-top:24px}
+#settingsPage[data-setup=true] #saveSettings{min-width:130px}
+#palettePresets{gap:12px}.palette-chip{width:44px;height:44px;border-width:5px}
+button:not(.library-card):not(.palette-chip):not([data-sort]):not([data-tab]):not(.accent):not(.board-delete){border:1px solid var(--line);background:var(--panel);backdrop-filter:blur(12px) saturate(1.5);box-shadow:inset 0 1px 1px #ffffff70,0 3px 9px #24162508}
+button:not(.palette-chip):active{filter:brightness(.96)}
+input:not([type=checkbox]):not([type=range]),select,textarea{background:var(--panel);border:1px solid var(--line);box-shadow:inset 0 1px 1px #ffffff50;border-radius:18px}
+input[type=checkbox]{appearance:none;-webkit-appearance:none;position:relative;display:inline-block;width:44px;height:26px!important;min-width:44px;border:1px solid var(--line);border-radius:20px;padding:0;background:var(--raised);vertical-align:middle;cursor:pointer}
+input[type=checkbox]::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--solid);box-shadow:0 1px 3px #0003;transition:transform .18s}
+input[type=checkbox]:checked{background:var(--selection)}input[type=checkbox]:checked::after{transform:translateX(18px)}
+#toolbar button{border:0!important;box-shadow:none!important;background:transparent!important}
+#toolbar button.active{background:var(--raised)!important;box-shadow:inset 0 1px 1px #ffffff80!important}
+#libraryNav button{border:0!important;box-shadow:none!important;backdrop-filter:none!important}
+:root[data-theme=dark] button{box-shadow:none}
+:root[data-glass=reduced] button,:root[data-glass=reduced] #settingsPage .dialog-footer{backdrop-filter:none!important}
+@media(max-width:500px){
+ #settingsPage .dialog-footer{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+ #settingsPage .dialog-footer button{white-space:nowrap;font-size:12px;padding:10px 12px}
+ #settingsPage .settings-grid section{padding:20px}
+ #settingsPage h1{font-size:30px}
+ #settingsPage .hint{font-size:12px!important}
+ #settingsPage #saveSettings{flex-shrink:0}
+ .topbar #backHome{width:44px;height:44px}
+ .library-filters button{min-height:44px}
+ #libraryNav{height:68px;bottom:calc(10px + var(--safe-bottom))}
+ #library{padding-bottom:calc(110px + var(--safe-bottom))}
+ .insert-grid button,.action-list button{min-height:56px}
+ #toolbar{min-height:72px}
+ #toolbar button{min-height:58px}
+}
+@media(min-width:850px){#settingsPage .settings-grid{grid-template-columns:1fr 1fr}#settingsPage[data-setup=true] .settings-grid{grid-template-columns:1fr}#settingsPage .dialog-footer{justify-content:center}#settingsPage .dialog-footer .accent{margin-left:20px}}
+
+dialog{background:var(--panel);backdrop-filter:blur(24px) saturate(1.6);border:1px solid var(--line);box-shadow:var(--shadow),inset 0 1px 1px #ffffff80}
+:root[data-glass=reduced] dialog{background:var(--solid);backdrop-filter:none}

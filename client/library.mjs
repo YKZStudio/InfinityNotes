@@ -3,7 +3,7 @@ import {icon} from './icons.mjs';
 import {presets} from './theme.mjs';
 export function library(api){
  const $=s=>document.querySelector(s);let tab='boards',sort='all';
- function page(value){document.body.dataset.page=value;$('#library').hidden=value!=='home';$('#main').hidden=value!=='editor';$('#sidebar').hidden=value!=='editor';api.closeSidebar();if(value==='home')render();}
+ function page(value,fromHistory=false){if(!fromHistory&&value!==document.body.dataset.page){if(value==='editor')history.pushState({infinity:'editor'},'');else if(value==='home'&&history.state?.infinity==='editor')history.back();}document.body.dataset.page=value;$('#library').hidden=value!=='home';$('#main').hidden=value!=='editor';$('#sidebar').hidden=value!=='editor';api.closeSidebar();if(value==='home')render();}
  function open(b,camera){page('editor');api.open(b.id,camera);}
  function date(time){const d=new Date();d.setHours(0,0,0,0);return time>=+d?'今天':time>=+d-86400000?'昨天':new Date(time).toLocaleDateString('zh-CN',{month:'short',day:'numeric'});}
  function render(){
@@ -21,7 +21,7 @@ export function library(api){
  for(const [name,color] of presets){const b=document.createElement('button');b.type='button';b.className='palette-chip';b.style.backgroundColor=color;b.setAttribute('aria-label',name+'主题');b.onclick=()=>{$('#accent').value=color;preview();};$('#palettePresets').append(b);}
  function preview(){api.preview({...api.state().settings,accent:$('#accent').value,theme:$('#theme').value,reduced:$('#reducedGlass').checked});}
  for(const id of ['accent','theme','reducedGlass'])$('#'+id).addEventListener('input',preview);
- $('#settingsDialog').addEventListener('close',()=>{api.preview(api.state().settings);select(tab);});
- $('#closeSettings').onclick=()=>{if(!api.required())$('#settingsDialog').close();};
- document.addEventListener('workspace-render',render);page('home');
+ $('#settingsPage').addEventListener('settings-close',()=>{api.preview(api.state().settings);select(tab);});
+ window.addEventListener('popstate',e=>{if(document.body.dataset.page==='settings')return;if(e.state?.infinity==='editor')page('editor',true);else page('home',true);});
+ document.addEventListener('workspace-render',render);if(document.body.dataset.page==='settings')render();else page('home');
 }

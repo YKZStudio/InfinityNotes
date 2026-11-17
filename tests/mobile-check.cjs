@@ -7,6 +7,42 @@ const path=require('node:path');
   const out=process.env.WUJI_QA_OUT||path.join(process.cwd(),'test-results');await fs.mkdir(out,{recursive:true});
   const browser=await chromium.launch({headless:true,executablePath:process.env.WUJI_CHROMIUM||undefined,args:['--no-sandbox']});
   const errors=[];
+  // First-run setup is a page; Back/Escape and a cancelled picker cannot skip storage.
+  {
+    const c=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+    await c.addInitScript(()=>{
+      let connected=false,cancel=true;
+      window.__TAURI__={core:{invoke:async(command)=>{
+        if(command==='native_status')return {folder:connected?{uri:'qa://folder',name:'测试目录'}:null};
+        if(command==='window_insets')return {top:32,bottom:24,left:0,right:0};
+        if(command==='choose_folder'){if(cancel){cancel=false;throw Error('已取消选择');}return {};}
+        if(command==='confirm_folder'){connected=true;return null;}
+        if(['read_workspace','write_workspace','app_ready'].includes(command))return null;
+        throw Error(command);
+      }}};
+    });
+    const p=await c.newPage();p.on('pageerror',e=>errors.push(e.message));await p.goto('http://127.0.0.1:8787');
+    await p.locator('#settingsPage:not([hidden])').waitFor();
+    assert.equal(await p.locator('#settingsPage').evaluate(el=>el.tagName),'SECTION');
+    assert.equal(await p.locator('dialog[open]').count(),0);
+    await p.locator('#saveSettings').click();await p.locator('#saveSettings').click();
+    assert.equal(await p.locator('#settingsPage').getAttribute('data-step'),'1');
+    await p.locator('#chooseFolder').click();await p.locator('#saveSettings').click();
+    assert.equal(await p.locator('#settingsPage').getAttribute('data-step'),'1');
+    await p.locator('#settingsTitle').press('Escape');
+    assert.equal(await p.locator('#settingsPage').isVisible(),true);
+    await p.locator('#saveSettings').click();
+    await p.locator('#chooseFolder').click();await p.locator('#saveSettings').click();
+    assert.equal(await p.locator('#settingsPage').getAttribute('data-step'),'2');
+    await p.screenshot({path:path.join(out,'setup-appearance.png'),animations:'disabled'});
+    await p.locator('#saveSettings').click();await p.locator('#saveSettings').click();
+    await p.locator('#settingsPage').waitFor({state:'hidden'});
+    await p.locator('[data-tab=settings]').click();
+    await p.locator('#theme').selectOption('dark');
+    await p.locator('#closeSettings').click();
+    assert.equal(await p.locator('#settingsPage').isVisible(),false);
+    await c.close();
+  }
   for(const [name,width,height,dark] of [['small-phone',320,640,false],['phone-safe-area',390,844,false],['phone-dark',390,844,true],['tablet-safe-area',768,1024,false]]){
     const c=await browser.newContext({viewport:{width,height},isMobile:true,hasTouch:true,colorScheme:dark?'dark':'light'});
     await c.addInitScript(()=>{
@@ -20,8 +56,8 @@ const path=require('node:path');
       }}};
     });
     const p=await c.newPage();p.on('pageerror',e=>errors.push(e.message));await p.goto('http://127.0.0.1:8787');
-    await p.locator('#saveSettings').click();
-    await p.locator('#settingsDialog').waitFor({state:'hidden'});
+    for(let i=0;i<4;i++)await p.locator('#saveSettings').click();
+    await p.locator('#settingsPage').waitFor({state:'hidden'});
     await p.screenshot({path:path.join(out,name+'-library.png'),animations:'disabled'});
     await p.locator('.library-card').first().click();
     await p.waitForFunction(()=>getComputedStyle(document.documentElement).getPropertyValue('--native-safe-top')==='32px');
