@@ -287,7 +287,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden){clearTimeo
 try {await openDB();await nativeStatus();let stored=await get('workspace');
   if(isNative&&nativeInfo?.folder?.uri){const raw=await invoke('read_workspace');if(raw)stored=JSON.parse(raw);else stored=null;$('#storageStatus').textContent=nativeInfo.folder.name;}
   if(stored)state=validateWorkspace(stored);if(!isNative){folder=await get('folder');if(folder)$('#storageStatus').textContent=folder.name;}
-  if(!stored)current().camera={x:20,y:110,z:Math.min(.9,(stage.clientWidth-40)/1000)};
+  if(!stored)current().camera={x:20,y:110,z:Math.max(.1,Math.min(.9,(innerWidth-40)/1000))};
   setupRequired=!stored||stored.setupComplete===false||(isNative&&!nativeInfo?.folder?.uri);if(setupRequired)state.setupComplete=false;
   render();if(isNative)await invoke('app_ready');if(setupRequired)openSettings(true);
   if(nativeInfo?.error)toast(nativeInfo.error);
