@@ -16,7 +16,7 @@ export function library(api){
  }
  function select(value){tab=value;$('#libraryTitle').textContent=tab==='boards'?'看板':'场景';$('#libraryBoards').hidden=tab!=='boards';$('#libraryFilters').hidden=tab!=='boards';$('#libraryScenes').hidden=tab!=='scenes';$('#libraryNav').style.setProperty('--index',tab==='boards'?0:1);for(const b of document.querySelectorAll('[data-tab]')){if(b.dataset.tab===tab)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');}render();}
  $('#backHome').onclick=()=>page('home');$('#libraryNew').onclick=()=>{page('editor');$('#newBoard').click();};
- for(const b of document.querySelectorAll('[data-tab]'))b.onclick=()=>{if(b.dataset.tab==='settings'){$('#libraryNav').style.setProperty('--index',2);api.settings();}else select(b.dataset.tab);};
+ for(const b of document.querySelectorAll('[data-tab]'))b.onclick=()=>{if(b.dataset.tab==='settings'){$('#libraryNav').style.setProperty('--index',2);for(const nav of document.querySelectorAll('[data-tab]'))nav.removeAttribute('aria-current');b.setAttribute('aria-current','page');api.settings();}else select(b.dataset.tab);};
  for(const b of document.querySelectorAll('[data-sort]'))b.onclick=()=>{sort=b.dataset.sort;for(const other of document.querySelectorAll('[data-sort]'))other.setAttribute('aria-pressed',String(other===b));render();};
  for(const [name,color] of presets){const b=document.createElement('button');b.type='button';b.className='palette-chip';b.style.backgroundColor=color;b.setAttribute('aria-label',name+'主题');b.onclick=()=>{$('#accent').value=color;preview();};$('#palettePresets').append(b);}
  function preview(){api.preview({...api.state().settings,accent:$('#accent').value,theme:$('#theme').value,reduced:$('#reducedGlass').checked});}
