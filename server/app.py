@@ -203,6 +203,7 @@ def main():
     parser=argparse.ArgumentParser(description='无限记个人同步原型')
     parser.add_argument('--host',default='127.0.0.1')
     parser.add_argument('--port',type=int,default=8787)
+    parser.add_argument('--strictPort',action='store_true',help=argparse.SUPPRESS)
     parser.add_argument('--data',default=str(Path.home()/'WuxianjiPrototypeData'))
     args=parser.parse_args()
     origins=tuple(x.strip() for x in os.environ.get('WUJI_ALLOWED_ORIGINS','').split(',') if x.strip())

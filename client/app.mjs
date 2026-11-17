@@ -1,11 +1,14 @@
+import {applyTheme} from './theme.mjs';
+import {starters} from './starters.mjs';
+import {library} from './library.mjs';
 import {board, node, demo, uid, clone, History, validateBoard, worldPoint, zoomAt, nodeSVG, exportSVG, escapeXML} from './core.mjs';
 import {isNative, invoke, nativeStatus, nativeInfo, setNativeAppearance} from './native.mjs';
 import {startSpeech} from './speech.mjs';
 import {decorateIcons} from './icons.mjs';
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const names = {note:'便笺条',text:'文字',rect:'矩形',ellipse:'椭圆',path:'笔迹',image:'图片',link:'网页链接',arrow:'箭头'};
-const defaults = {theme:'system',accent:'#b66d27',keyboard:false,speech:false,speechLang:'zh-CN',reduced:false,serverURL:'',speechMode:'offline'};
-let state = {schema:1, boards:[demo()], current:null, settings:{...defaults}, revisions:{}};
+const defaults = {theme:'system',accent:'#ad7c96',keyboard:false,speech:false,speechLang:'zh-CN',reduced:false,serverURL:'',speechMode:'offline'};
+let state = {schema:1, boards:starters(), current:null, settings:{...defaults}, revisions:{}};
 state.current = state.boards[0].id;
 let db, folder, selected=null, tool='select', history=new History(), drag=null, space=false, saveTimer, toastTimer, speechEngine, shifted=false, saving=Promise.resolve(), sequence=0, sessionToken='', storageBlocked=false;
 let setupRequired=false;
@@ -48,13 +51,7 @@ function validateWorkspace(value) {
   value.settings.speechMode=['offline','server'].includes(s.speechMode)?s.speechMode:'offline';
   value.revisions=value.revisions&&typeof value.revisions==='object'&&!Array.isArray(value.revisions)?value.revisions:{}; return value;
 }
-function settingsTheme() {
-  const s=state.settings; const dark=s.theme==='dark'||(s.theme==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);
-  document.documentElement.dataset.theme=dark?'dark':'light'; document.documentElement.dataset.glass=s.reduced?'reduced':'full';
-  document.documentElement.style.setProperty('--accent',/^#[\da-f]{6}$/i.test(s.accent)?s.accent:defaults.accent);
-  document.querySelector('meta[name="theme-color"]').content=dark?'#1b1e24':'#f7f8fa';
-  setNativeAppearance(dark);
-}
+function settingsTheme(s=state.settings) {setNativeAppearance(applyTheme(s));}
 function dirty() {current().updated=Date.now(); $('#saveStatus').textContent='正在保存…'; clearTimeout(saveTimer); saveTimer=setTimeout(()=>persist(),350);}
 function persist() {
   const snapshot=clone(state), version=++sequence;
@@ -79,6 +76,7 @@ function persist() {
 function checkpoint() {history.push(current());}
 function commit() {render();dirty();}
 function renderBoards() {
+  document.dispatchEvent(new Event('workspace-render'));
   const query=$('#search').value.trim().toLocaleLowerCase(); $('#boards').replaceChildren(); $('#count').textContent=state.boards.length;
   for(const b of state.boards.filter(b=>!query||[b.title,...b.nodes.map(n=>n.text)].join(' ').toLocaleLowerCase().includes(query))) {
     const card=document.createElement('div');card.className='board-card'+(b.id===state.current?' selected':'');card.tabIndex=0;card.setAttribute('role','button');card.setAttribute('aria-label',b.title);
@@ -224,9 +222,9 @@ function center() {return worldPoint(stage.clientWidth/2,stage.clientHeight/2,cu
 $('#image').onclick=()=>{$('#insertDialog').close();$('#imageFile').click();};
 $('#imageFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;if(!['image/png','image/jpeg','image/webp','image/gif'].includes(f.type)||f.size>5*1024*1024)return toast('请选择 5 MB 以内的 PNG、JPEG、WebP 或 GIF 图片');try{const src=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(f);});const image=new Image();image.src=src;await image.decode();const p=center(),w=Math.min(440,image.naturalWidth),h=Math.min(10000,w*image.naturalHeight/image.naturalWidth);checkpoint();const n=node('image',p.x-w/2,p.y-h/2,{src,w,h});current().nodes.push(n);selected=n.id;commit();}catch{toast('无法读取这张图片');}};
 $('#link').onclick=()=>{$('#insertDialog').close();const url=prompt('输入网页链接（https://…）');if(!url)return;try{const u=new URL(url);if(!['https:','http:'].includes(u.protocol))throw Error();const p=center();checkpoint();const n=node('link',p.x-130,p.y-60,{url:u.href,text:u.hostname+'\n'+u.pathname,w:260,h:120,fill:'#dce8fa'});current().nodes.push(n);selected=n.id;commit();}catch{toast('请输入有效的 http 或 https 网页地址');}};
-window.addEventListener('keydown',e=>{if($$('dialog[open]').length||['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName))return;if(e.code==='Space'){space=true;e.preventDefault();}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo();return;}if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();removeSelected();}if(e.key==='Escape'){selected=null;selectTool('select');renderCanvas();renderInspector();}const shortcuts={v:'select',h:'pan',t:'text',n:'note',p:'path'};if(!e.ctrlKey&&!e.metaKey&&shortcuts[e.key.toLowerCase()])selectTool(shortcuts[e.key.toLowerCase()]);});
+window.addEventListener('keydown',e=>{if(document.body.dataset.page==='home'||$$('dialog[open]').length||['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName))return;if(e.code==='Space'){space=true;e.preventDefault();}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo();return;}if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();removeSelected();}if(e.key==='Escape'){selected=null;selectTool('select');renderCanvas();renderInspector();}const shortcuts={v:'select',h:'pan',t:'text',n:'note',p:'path'};if(!e.ctrlKey&&!e.metaKey&&shortcuts[e.key.toLowerCase()])selectTool(shortcuts[e.key.toLowerCase()]);});
 window.addEventListener('keyup',e=>{if(e.code==='Space')space=false;});window.addEventListener('blur',()=>{space=false;pointers.clear();finishPath();drag=null;});
-function openSettings(first=false) {const s=state.settings;$('#settingsTitle').textContent=first?'欢迎来到无限记':'让无限记更像你';$('#saveSettings').textContent=first?'开始记录':'保存设置';$('#theme').value=s.theme;$('#accent').value=s.accent;$('#keyboardEnabled').checked=s.keyboard;$('#speechEnabled').checked=s.speech;$('#speechLang').value=s.speechLang;$('#speechMode').value=s.speechMode||'offline';$('#reducedGlass').checked=s.reduced;$('#serverURL').value=s.serverURL;$('#serverToken').value=sessionToken;$('#folderLabel').textContent=isNative?(nativeInfo?.folder?.name?'原生文件夹：'+nativeInfo.folder.name:'请先选择原生存储文件夹'):folder?`文件夹：${folder.name}；重启浏览器后可能需要重新授权。`:'当前：浏览器本机存储。可选文件夹或导出备份。';$('#settingsDialog').showModal();}
+function openSettings(first=false) {$('#closeSettings').hidden=setupRequired;const s=state.settings;$('#settingsTitle').textContent=first?'欢迎来到无限记':'让无限记更像你';$('#saveSettings').textContent=first?'开始记录':'保存设置';$('#theme').value=s.theme;$('#accent').value=s.accent;$('#keyboardEnabled').checked=s.keyboard;$('#speechEnabled').checked=s.speech;$('#speechLang').value=s.speechLang;$('#speechMode').value=s.speechMode||'offline';$('#reducedGlass').checked=s.reduced;$('#serverURL').value=s.serverURL;$('#serverToken').value=sessionToken;$('#folderLabel').textContent=isNative?(nativeInfo?.folder?.name?'原生文件夹：'+nativeInfo.folder.name:'请先选择原生存储文件夹'):folder?`文件夹：${folder.name}；重启浏览器后可能需要重新授权。`:'当前：浏览器本机存储。可选文件夹或导出备份。';$('#settingsDialog').showModal();}
 $('#settings').onclick=()=>{setSidebar(false);openSettings();};
 $('#settingsDialog').addEventListener('cancel',e=>{if(setupRequired){e.preventDefault();toast('请先完成存储设置');}});
 $('#settingsDialog').addEventListener('close',()=>{if(setupRequired)queueMicrotask(()=>{if(!$('#settingsDialog').open)$('#settingsDialog').showModal();});});
@@ -284,7 +282,7 @@ $('#sync').onclick=async()=>{
 };
 // Explicit cloud download allows a fresh device to recover existing boards without shared IDs.
 const pull=document.createElement('button');pull.type='button';pull.textContent='下载云端看板';pull.onclick=async()=>{const token=$('#serverToken').value||sessionToken,base=$('#serverURL').value.replace(/\/$/,'')||location.origin;if(!token)return toast('请先填写访问密钥');try{const u=new URL(base);if(u.protocol!=='https:'&&!(['127.0.0.1','localhost','[::1]'].includes(u.hostname)&&u.protocol==='http:'))throw Error('请使用 HTTPS');const headers={Authorization:'Bearer '+token};const res=await fetch(base+'/api/boards',{headers,signal:AbortSignal.timeout(15000)});if(!res.ok)throw Error('无法读取云端列表');const list=await res.json();const rows=list.boards;if(!rows.length)return toast('云端还没有看板');if(rows.length+state.boards.length>200)throw Error('导入后将超过 200 个看板');if(!confirm(`下载 ${rows.length} 个云端看板？本机同名内容将保留为副本。`))return;const downloaded=[];for(const row of rows){const r=await fetch(base+'/api/boards/'+encodeURIComponent(row.id),{headers,signal:AbortSignal.timeout(15000)});if(!r.ok)throw Error('下载中断，本机内容未更改');downloaded.push(await r.json());}for(const data of downloaded){const b=validateBoard(data.board);if(state.boards.some(x=>x.id===b.id)){b.id=uid();b.title=(b.title+'（云端副本）').slice(0,200);}else state.revisions[base+'/'+b.id]=data.revision;state.boards.push(b);}renderBoards();dirty();toast('云端看板已下载');}catch(e){toast(e.message);}};$('#serverToken').parentElement.after(pull);
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change',settingsTheme);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>settingsTheme());
 document.addEventListener('visibilitychange',()=>{if(document.hidden){clearTimeout(saveTimer);persist();}});
 try {await openDB();await nativeStatus();let stored=await get('workspace');
   if(isNative&&nativeInfo?.folder?.uri){const raw=await invoke('read_workspace');if(raw)stored=JSON.parse(raw);else stored=null;$('#storageStatus').textContent=nativeInfo.folder.name;}
@@ -306,3 +304,5 @@ if(isNative){
     }catch(e){toast(String(e));}finally{update.disabled=false;}};
   $('#serverToken').parentElement.after(update);
 }
+
+library({state:()=>state,closeSidebar:()=>setSidebar(false),required:()=>setupRequired,settings:()=>openSettings(),preview:settingsTheme,open:(id,camera)=>{state.current=id;selected=null;history=new History();if(camera)current().camera=camera;render();persist();}});
